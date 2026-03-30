@@ -3,80 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>モンスト反射シミュレータ（完全版）</title>
+    <title>モンスト反射シミュレータ</title>
     <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #000; overflow: hidden; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; }
+        /* 最初の設定を完全に再現 */
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
+        canvas { display: block; }
         
-        /* 描画エリア：ここが画面のメイン */
-        #canvas-container { 
-            flex: 1; 
-            position: relative; 
-            background: #111; 
-            overflow: hidden; 
-        }
-        canvas { display: block; touch-action: none; }
-
-        /* 下部ツールバー：高さ固定 */
-        #toolbar { 
-            height: 85px; 
-            background: #d3d3d3; 
-            display: flex; 
-            justify-content: space-around; 
-            align-items: center; 
-            border-top: 2px solid #999; 
-            padding-bottom: env(safe-area-inset-bottom);
-            z-index: 2000; 
+        /* ツールバーの配置も最初に合わせて調整 */
+        #toolbar {
+            position: absolute; bottom: 0; width: 100%; height: 80px;
+            background: #d3d3d3; display: flex; justify-content: space-around; align-items: center;
+            border-top: 2px solid #999; z-index: 2000;
         }
         .tool-btn { display: flex; flex-direction: column; align-items: center; cursor: pointer; color: #333; font-size: 10px; flex: 1; }
-        .tool-icon { width: 36px; height: 36px; border: 1px solid #777; border-radius: 6px; display: flex; justify-content: center; align-items: center; background: #fff; font-size: 22px; margin-bottom: 2px; }
-        
-        /* 操作パネル */
-        .control-panel { position: absolute; background: rgba(0,0,0,0.75); padding: 8px; border-radius: 12px; display: none; gap: 4px; z-index: 3000; border: 1px solid #666; }
-        .control-panel.show { display: grid; }
-        .pad-btn { width: 44px; height: 44px; background: #fff; border: 1px solid #333; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; color: #000; }
-        .pad-btn:active { background: #007AFF; color: #fff; }
-        
-        #add-panel { bottom: 10px; left: 10px; grid-template-columns: repeat(3, 44px); }
-        #d-pad { bottom: 10px; right: 10px; grid-template-columns: repeat(3, 44px); }
-        .panel-label { grid-column: span 3; color: white; text-align: center; font-size: 9px; margin-bottom: 2px; }
+        .tool-icon { width: 34px; height: 34px; border: 1px solid #777; border-radius: 4px; display: flex; justify-content: center; align-items: center; background: #fff; font-size: 20px; margin-bottom: 2px; }
 
-        #settings { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.85); padding: 12px; border-radius: 8px; color: white; font-size: 11px; z-index: 1000; display: none; }
+        /* 操作パネル（追加機能分のみ絶対配置で重畳） */
+        .control-panel { position: absolute; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 12px; display: none; gap: 4px; z-index: 3000; }
+        .control-panel.show { display: grid; }
+        .pad-btn { width: 42px; height: 42px; background: #fff; border: 1px solid #333; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 18px; font-weight: bold; color: #000; }
+        
+        #add-panel { bottom: 90px; left: 10px; grid-template-columns: repeat(3, 42px); }
+        #d-pad { bottom: 90px; right: 10px; grid-template-columns: repeat(3, 42px); }
+        .panel-label { grid-column: span 3; color: white; text-align: center; font-size: 9px; }
+
+        #settings { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.85); padding: 15px; border-radius: 10px; color: white; font-size: 12px; z-index: 1000; display: none; }
         #settings.show { display: block; }
     </style>
 </head>
 <body>
 
-<div id="canvas-container">
-    <div id="settings">
-        左右壁: <input type="range" id="sM" min="0" value="15"><br>
-        上部壁: <input type="range" id="tM" min="0" value="120"><br>
-        下部壁: <input type="range" id="bM" min="0" value="50"><br>
-        <button onclick="blocks=[]; selectedIndex=-1; updatePanels(); draw();" style="margin-top:10px;">🗑 全消去</button>
-    </div>
-    
-    <div id="add-panel" class="control-panel">
-        <div class="panel-label">隣接追加</div>
-        <div></div><div class="pad-btn" onclick="addAdjacentBlock(0,-1)">↑</div><div></div>
-        <div class="pad-btn" onclick="addAdjacentBlock(-1,0)">←</div><div class="pad-btn" onclick="addAdjacentBlock(0,1)">↓</div><div class="pad-btn" onclick="addAdjacentBlock(1,0)">→</div>
-    </div>
+<canvas id="canvas"></canvas>
 
-    <div id="d-pad" class="control-panel">
-        <div class="panel-label">微調整</div>
-        <div></div><div class="pad-btn" onclick="nudge(0,-1)">↑</div><div></div>
-        <div class="pad-btn" onclick="nudge(-1,0)">←</div><div class="pad-btn" onclick="nudge(0,1)">↓</div><div class="pad-btn" onclick="nudge(1,0)">→</div>
-    </div>
+<div id="settings">
+    左右壁: <input type="range" id="sM" min="0"><br>
+    上部壁: <input type="range" id="tM" min="0"><br>
+    下部壁: <input type="range" id="bM" min="0"><br>
+    <button onclick="blocks=[]; selectedIndex=-1; updatePanels(); draw();" style="margin-top:10px;">🗑 全消去</button>
+</div>
 
-    <canvas id="canvas"></canvas>
+<div id="add-panel" class="control-panel">
+    <div class="panel-label">隣接追加</div>
+    <div></div><div class="pad-btn" onclick="addAdjacentBlock(0,-1)">↑</div><div></div>
+    <div class="pad-btn" onclick="addAdjacentBlock(-1,0)">←</div><div class="pad-btn" onclick="addAdjacentBlock(0,1)">↓</div><div class="pad-btn" onclick="addAdjacentBlock(1,0)">→</div>
+</div>
+
+<div id="d-pad" class="control-panel">
+    <div class="panel-label">微調整</div>
+    <div></div><div class="pad-btn" onclick="nudge(0,-1)">↑</div><div></div>
+    <div class="pad-btn" onclick="nudge(-1,0)">←</div><div class="pad-btn" onclick="nudge(0,1)">↓</div><div class="pad-btn" onclick="nudge(1,0)">→</div>
 </div>
 
 <div id="toolbar">
     <label class="tool-btn"><input type="file" id="imgInput" accept="image/*" style="display:none"><div class="tool-icon">🖼</div>背景</label>
     <div class="tool-btn" onclick="handleAddButton()"><div class="tool-icon">＋</div>配置</div>
     <div class="tool-btn" onclick="undo()"><div class="tool-icon">↩️</div>戻る</div>
-    <div class="tool-btn" onclick="changeRef(-1)"><div class="tool-icon">－</div>減らす</div>
-    <div class="tool-btn"><div class="tool-icon" id="refNum" style="background:transparent; border:none; font-weight:bold;">1</div>反射数</div>
-    <div class="tool-btn" onclick="changeRef(1)"><div class="tool-icon">＋</div>増やす</div>
+    <div class="tool-btn" onclick="changeRef(-1)"><div class="tool-icon">－</div><span id="refNum">1</span></div>
+    <div class="tool-btn" onclick="changeRef(1)"><div class="tool-icon">＋</div>反射</div>
     <div class="tool-btn" onclick="document.getElementById('settings').classList.toggle('show')"><div class="tool-icon">⚙</div>調整</div>
 </div>
 
@@ -86,24 +69,25 @@ const ctx = canvas.getContext("2d");
 let img = null, start = {x:0, y:0}, target = {x:0, y:0}, maxRef = 1, blocks = [];
 let isDragging = false, isDraggingStart = false, draggingBlockIndex = -1, dragOffset = {x:0, y:0};
 let selectedIndex = -1;
-let m = { side: 15, top: 120, bottom: 50 }; 
+let m = { side: 15, top: 120, bottom: 230 }; // 初期マージンも最初に戻しました
 
-const BLOCK_SIZE = 40; 
+const BLOCK_SIZE = 40;
 const CHAR_RADIUS = 20;
-const HORN_LENGTH = 25; 
-const HORN_TOUCH_BUFFER = 30;
+const HORN_LENGTH = 25;
+const HORN_TOUCH_BUFFER = 25;
 
 function init() {
-    const container = document.getElementById("canvas-container");
-    canvas.width = container.clientWidth;
-    canvas.height = container.clientHeight;
-    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
     start = { x: canvas.width / 2, y: canvas.height * 0.7 };
     target = { x: start.x, y: start.y - 100 };
     
     document.getElementById('sM').max = canvas.width / 2;
     document.getElementById('tM').max = canvas.height;
     document.getElementById('bM').max = canvas.height;
+    document.getElementById('sM').value = m.side;
+    document.getElementById('tM').value = m.top;
+    document.getElementById('bM').value = m.bottom;
     
     draw();
 }
@@ -178,13 +162,7 @@ function draw() {
     
     const L = m.side, R = canvas.width - m.side, T = m.top, B = canvas.height - m.bottom;
     
-    // ガイドライン（壁）
-    ctx.strokeStyle = "rgba(0, 255, 0, 0.3)";
-    ctx.setLineDash([5, 5]);
-    ctx.strokeRect(L, T, R - L, B - T);
-    ctx.setLineDash([]);
-
-    // ブロック
+    // ブロック描画
     blocks.forEach((b, i) => { 
         ctx.lineWidth = (i === selectedIndex) ? 4 : 2;
         ctx.strokeStyle = (i === selectedIndex) ? "#ffff00" : "#00ff00";
@@ -223,7 +201,7 @@ function draw() {
         });
     }
 
-    // 自キャラ（角を大きく）
+    // 自キャラ
     ctx.beginPath(); ctx.arc(start.x, start.y, CHAR_RADIUS, 0, Math.PI * 2);
     ctx.strokeStyle = "rgba(255, 255, 255, 0.8)"; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.strokeStyle = "white"; ctx.lineWidth = 4; 
@@ -240,14 +218,11 @@ function drawHex(x, y, s) {
     ctx.closePath(); ctx.strokeStyle = "#00ffff"; ctx.lineWidth = 2; ctx.stroke();
 }
 
-const getP = e => {
+const down = e => {
     const r = canvas.getBoundingClientRect();
     const t = e.touches ? e.touches[0] : e;
-    return { x: t.clientX - r.left, y: t.clientY - r.top };
-};
+    const p = { x: t.clientX - r.left, y: t.clientY - r.top };
 
-const down = e => {
-    const p = getP(e);
     for (let i = blocks.length - 1; i >= 0; i--) {
         const b = blocks[i];
         if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) {
@@ -267,7 +242,9 @@ const down = e => {
 
 const move = e => {
     if (!isDragging) return;
-    const p = getP(e);
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    const p = { x: t.clientX - r.left, y: t.clientY - r.top };
     if (draggingBlockIndex !== -1) {
         blocks[draggingBlockIndex].x = p.x - dragOffset.x;
         blocks[draggingBlockIndex].y = p.y - dragOffset.y;
@@ -282,7 +259,6 @@ canvas.addEventListener("touchstart", down, {passive: false});
 canvas.addEventListener("touchmove", move, {passive: false});
 canvas.addEventListener("touchend", up);
 window.onload = init;
-window.onresize = init;
 </script>
 </body>
 </html>
