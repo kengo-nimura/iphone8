@@ -61,9 +61,9 @@ let draggingBlockIndex = -1, dragOffset = {x:0, y:0}, lastTapTime = 0;
 let selectedIndex = -1;
 let m = { side: 15, top: 120, bottom: 230 };
 
-// ブロックのサイズを 34 に変更
-const BLOCK_SIZE = 34; 
-const SNAP_DIST = 10;
+// ブロックのサイズを 37 に調整
+const BLOCK_SIZE = 37; 
+const SNAP_DIST = 11;
 const CHAR_RADIUS = 20;
 const HORN_LENGTH = 25; 
 const HORN_TOUCH_BUFFER = 25;
@@ -251,6 +251,8 @@ function draw() {
                 if (curVx > 0) { let d = (b.x - cx) / curVx; let y = cy + curVy * d; if (d > minDistance && d < t && y >= b.y && y <= b.y + b.h) { t = d; side = "x"; } }
                 if (curVx < 0) { let d = (b.x + b.w - cx) / curVx; let y = cy + curVy * d; if (d > minDistance && d < t && y >= b.y && y <= b.y + b.h) { t = d; side = "x"; } }
                 if (curVy > 0) { let d = (b.y - cy) / curVy; let x = cx + curVx * d; if (d > minDistance && d < t && x >= b.x && x <= b.x + b.w) { t = d; side = "y"; } }
+                if (curVy < 0) { let d = (b.y + b.h - cy) / curVy; let x = cx + LOGGING_SIZE_FACTOR * d; if (d > minDistance && d < t && x >= b.x && x <= b.x + b.w) { t = d; side = "y"; } }
+                /* 修正: curVx * d に戻す */
                 if (curVy < 0) { let d = (b.y + b.h - cy) / curVy; let x = cx + curVx * d; if (d > minDistance && d < t && x >= b.x && x <= b.x + b.w) { t = d; side = "y"; } }
             });
             if (t === Infinity) break;
