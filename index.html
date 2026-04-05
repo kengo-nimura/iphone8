@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>モンスト反射シミュレータ（精密・小型ブロック版）</title>
+    <title>モンスト反射シミュレータ（ブロックサイズ調整版）</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; }
         #canvas-container { flex: 1; position: relative; background: #111; display: flex; justify-content: center; align-items: center; overflow: hidden; }
@@ -61,9 +61,9 @@ let draggingBlockIndex = -1, dragOffset = {x:0, y:0}, lastTapTime = 0;
 let selectedIndex = -1; 
 let m = { side: 15, top: 120, bottom: 230 };
 
-// 【修正】ブロックサイズを小さく変更
-const BLOCK_SIZE = 26; 
-const SNAP_DIST = 8; // サイズに合わせて吸着距離も少し短く
+// 【調整】ブロックサイズをほどよい 34 に設定
+const BLOCK_SIZE = 34; 
+const SNAP_DIST = 10; 
 const CHAR_RADIUS = 20;
 const HORN_LENGTH = 25; 
 const HORN_TOUCH_BUFFER = 25;
