@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>モンスト反射シミュレータ（精密操作版）</title>
+    <title>モンスト反射シミュレータ（精密・小型ブロック版）</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; }
         #canvas-container { flex: 1; position: relative; background: #111; display: flex; justify-content: center; align-items: center; overflow: hidden; }
@@ -61,8 +61,9 @@ let draggingBlockIndex = -1, dragOffset = {x:0, y:0}, lastTapTime = 0;
 let selectedIndex = -1; 
 let m = { side: 15, top: 120, bottom: 230 };
 
-const BLOCK_SIZE = 40; 
-const SNAP_DIST = 12;
+// 【修正】ブロックサイズを小さく変更
+const BLOCK_SIZE = 26; 
+const SNAP_DIST = 8; // サイズに合わせて吸着距離も少し短く
 const CHAR_RADIUS = 20;
 const HORN_LENGTH = 25; 
 const HORN_TOUCH_BUFFER = 25;
@@ -169,19 +170,12 @@ document.getElementById("undoBtn").onclick = function() {
     draw();
 });
 
-function getDist(cx, cy, vx, vy, L, R, T, B, blocks) {
+function getWallDist(cx, cy, vx, vy, L, R, T, B) {
     let t = Infinity;
-    const minD = 0.1;
-    if (vx > 0) { let d = (R - cx) / vx; if (d > minD) t = Math.min(t, d); }
-    if (vx < 0) { let d = (L - cx) / vx; if (d > minD) t = Math.min(t, d); }
-    if (vy > 0) { let d = (B - cy) / vy; if (d > minD) t = Math.min(t, d); }
-    if (vy < 0) { let d = (T - cy) / vy; if (d > minD) t = Math.min(t, d); }
-    blocks.forEach(b => {
-        if (vx > 0) { let d = (b.x - cx) / vx; let y = cy + vy * d; if (d > minD && y >= b.y && y <= b.y + b.h) t = Math.min(t, d); }
-        if (vx < 0) { let d = (b.x + b.w - cx) / vx; let y = cy + vy * d; if (d > minD && y >= b.y && y <= b.y + b.h) t = Math.min(t, d); }
-        if (vy > 0) { let d = (b.y - cy) / vy; let x = cx + vx * d; if (d > minD && x >= b.x && x <= b.x + b.w) t = Math.min(t, d); }
-        if (vy < 0) { let d = (b.y + b.h - cy) / vy; let x = cx + vx * d; if (d > minD && x >= b.x && x <= b.x + b.w) t = Math.min(t, d); }
-    });
+    if (vx > 0) t = Math.min(t, (R - cx) / vx);
+    if (vx < 0) t = Math.min(t, (L - cx) / vx);
+    if (vy > 0) t = Math.min(t, (B - cy) / vy);
+    if (vy < 0) t = Math.min(t, (T - cy) / vy);
     return t;
 }
 
@@ -232,25 +226,21 @@ function draw() {
     if (mag > 1) { 
         vx /= mag; vy /= mag;
 
-        // 赤線（後ろ方向）
-        const bDist = getDist(start.x, start.y, -vx, -vy, L, R, T, B, blocks);
-        ctx.lineWidth = 2.5; ctx.strokeStyle = "red";
-        ctx.beginPath(); ctx.moveTo(start.x, start.y);
-        if (bDist !== Infinity) ctx.lineTo(start.x - vx * bDist, start.y - vy * bDist);
+        ctx.lineWidth = 2.5; 
+        ctx.strokeStyle = "red";
+
+        const tBackWall = getWallDist(start.x, start.y, -vx, -vy, L, R, T, B);
+        ctx.beginPath(); 
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(start.x - vx * tBackWall, start.y - vy * tBackWall);
         ctx.stroke();
 
-        // 赤線（前方向：ブロックを無視して壁まで引くガイド）
-        let tWall = Infinity;
-        if (vx > 0) tWall = Math.min(tWall, (R - start.x) / vx);
-        if (vx < 0) tWall = Math.min(tWall, (L - start.x) / vx);
-        if (vy > 0) tWall = Math.min(tWall, (B - start.y) / vy);
-        if (vy < 0) tWall = Math.min(tWall, (T - start.y) / vy);
+        const tForwardWall = getWallDist(start.x, start.y, vx, vy, L, R, T, B);
         ctx.beginPath();
         ctx.moveTo(start.x, start.y);
-        ctx.lineTo(start.x + vx * tWall, start.y + vy * tWall);
+        ctx.lineTo(start.x + vx * tForwardWall, start.y + vy * tForwardWall);
         ctx.stroke();
 
-        // 反射（白線）のシミュレーション
         let cx = start.x, cy = start.y, curVx = vx, curVy = vy;
         const pathPoints = [start];
         for (let i = 0; i < maxRef; i++) {
@@ -272,8 +262,8 @@ function draw() {
             if (side === "x") curVx *= -1; else curVy *= -1;
         }
 
-        // 白線と反射ポイント描画
         if (pathPoints.length > 1) {
+            ctx.setLineDash([]);
             ctx.beginPath(); ctx.strokeStyle = "white";
             ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
             for (let i = 1; i < pathPoints.length; i++) ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
