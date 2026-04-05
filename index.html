@@ -58,12 +58,11 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 let img = null, start = {x:0, y:0}, target = {x:0, y:0}, maxRef = 1, blocks = [], isAddingBlock = false, isDragging = false, isDraggingStart = false;
 let draggingBlockIndex = -1, dragOffset = {x:0, y:0}, lastTapTime = 0;
-let selectedIndex = -1;
+let selectedIndex = -1; 
 let m = { side: 15, top: 120, bottom: 230 };
 
-// ブロックのサイズを 37 に調整
-const BLOCK_SIZE = 37; 
-const SNAP_DIST = 11;
+const BLOCK_SIZE = 40; 
+const SNAP_DIST = 12;
 const CHAR_RADIUS = 20;
 const HORN_LENGTH = 25; 
 const HORN_TOUCH_BUFFER = 25;
@@ -172,7 +171,7 @@ document.getElementById("undoBtn").onclick = function() {
 
 function getDist(cx, cy, vx, vy, L, R, T, B, blocks) {
     let t = Infinity;
-    const minD = 0.001;
+    const minD = 0.1;
     if (vx > 0) { let d = (R - cx) / vx; if (d > minD) t = Math.min(t, d); }
     if (vx < 0) { let d = (L - cx) / vx; if (d > minD) t = Math.min(t, d); }
     if (vy > 0) { let d = (B - cy) / vy; if (d > minD) t = Math.min(t, d); }
@@ -224,7 +223,7 @@ function draw() {
     
     blocks.forEach((b, i) => { 
         ctx.lineWidth = (i === selectedIndex) ? 4 : 2;
-        ctx.strokeStyle = (i === selectedIndex) ? "#ffff00" : "#00ff00";
+        ctx.strokeStyle = (i === selectedIndex) ? "#ffff00" : "#00ff00"; 
         ctx.strokeRect(b.x, b.y, b.w, b.h); 
     });
 
@@ -232,17 +231,31 @@ function draw() {
     const mag = Math.hypot(vx, vy);
     if (mag > 1) { 
         vx /= mag; vy /= mag;
+
+        // 赤線（後ろ方向）
         const bDist = getDist(start.x, start.y, -vx, -vy, L, R, T, B, blocks);
         ctx.lineWidth = 2.5; ctx.strokeStyle = "red";
         ctx.beginPath(); ctx.moveTo(start.x, start.y);
         if (bDist !== Infinity) ctx.lineTo(start.x - vx * bDist, start.y - vy * bDist);
         ctx.stroke();
 
+        // 赤線（前方向：ブロックを無視して壁まで引くガイド）
+        let tWall = Infinity;
+        if (vx > 0) tWall = Math.min(tWall, (R - start.x) / vx);
+        if (vx < 0) tWall = Math.min(tWall, (L - start.x) / vx);
+        if (vy > 0) tWall = Math.min(tWall, (B - start.y) / vy);
+        if (vy < 0) tWall = Math.min(tWall, (T - start.y) / vy);
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(start.x + vx * tWall, start.y + vy * tWall);
+        ctx.stroke();
+
+        // 反射（白線）のシミュレーション
         let cx = start.x, cy = start.y, curVx = vx, curVy = vy;
         const pathPoints = [start];
         for (let i = 0; i < maxRef; i++) {
             let t = Infinity, side = "";
-            const minDistance = 0.001;
+            const minDistance = 0.1;
             if (curVx > 0) { let d = (R - cx) / curVx; if (d > minDistance && d < t) { t = d; side = "x"; } }
             if (curVx < 0) { let d = (L - cx) / curVx; if (d > minDistance && d < t) { t = d; side = "x"; } }
             if (curVy > 0) { let d = (B - cy) / curVy; if (d > minDistance && d < t) { t = d; side = "y"; } }
@@ -251,26 +264,22 @@ function draw() {
                 if (curVx > 0) { let d = (b.x - cx) / curVx; let y = cy + curVy * d; if (d > minDistance && d < t && y >= b.y && y <= b.y + b.h) { t = d; side = "x"; } }
                 if (curVx < 0) { let d = (b.x + b.w - cx) / curVx; let y = cy + curVy * d; if (d > minDistance && d < t && y >= b.y && y <= b.y + b.h) { t = d; side = "x"; } }
                 if (curVy > 0) { let d = (b.y - cy) / curVy; let x = cx + curVx * d; if (d > minDistance && d < t && x >= b.x && x <= b.x + b.w) { t = d; side = "y"; } }
-                if (curVy < 0) { let d = (b.y + b.h - cy) / curVy; let x = cx + LOGGING_SIZE_FACTOR * d; if (d > minDistance && d < t && x >= b.x && x <= b.x + b.w) { t = d; side = "y"; } }
-                /* 修正: curVx * d に戻す */
                 if (curVy < 0) { let d = (b.y + b.h - cy) / curVy; let x = cx + curVx * d; if (d > minDistance && d < t && x >= b.x && x <= b.x + b.w) { t = d; side = "y"; } }
             });
             if (t === Infinity) break;
             cx += curVx * t; cy += curVy * t;
             pathPoints.push({x: cx, y: cy});
-            if (side === "x") { curVx *= -1; cx += curVx * 0.1; } else { curVy *= -1; cy += curVy * 0.1; }
+            if (side === "x") curVx *= -1; else curVy *= -1;
         }
+
+        // 白線と反射ポイント描画
         if (pathPoints.length > 1) {
-            ctx.beginPath(); ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
-            ctx.lineTo(pathPoints[1].x, pathPoints[1].y);
-            ctx.strokeStyle = "red"; ctx.stroke();
-        }
-        if (pathPoints.length > 2) {
-            ctx.beginPath(); ctx.moveTo(pathPoints[1].x, pathPoints[1].y);
-            for (let i = 2; i < pathPoints.length; i++) ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
-            ctx.strokeStyle = "white"; ctx.stroke();
+            ctx.beginPath(); ctx.strokeStyle = "white";
+            ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+            for (let i = 1; i < pathPoints.length; i++) ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+            ctx.stroke();
             for (let i = 1; i < pathPoints.length; i++) drawHex(pathPoints[i].x, pathPoints[i].y, 10);
-        } else if (pathPoints.length === 2) drawHex(pathPoints[1].x, pathPoints[1].y, 10);
+        }
     }
     drawCharacter(start.x, start.y);
 }
@@ -284,31 +293,21 @@ const getP = e => {
 const down = e => {
     const p = getP(e), now = Date.now(), isDoubleTap = (now - lastTapTime) < 300;
     lastTapTime = now;
-
     for (let i = blocks.length - 1; i >= 0; i--) {
         const b = blocks[i];
         if (p.x >= b.x - 10 && p.x <= b.x + b.w + 10 && p.y >= b.y - 10 && p.y <= b.y + b.h + 10) {
             if (isDoubleTap) { blocks.splice(i, 1); selectedIndex = -1; toggleDPad(); draw(); return; }
-            selectedIndex = i;
-            toggleDPad();
-            draggingBlockIndex = i; 
-            dragOffset.x = p.x - b.x; 
-            dragOffset.y = p.y - b.y;
-            isDragging = true; 
-            draw(); 
-            return;
+            selectedIndex = i; toggleDPad(); draggingBlockIndex = i; 
+            dragOffset.x = p.x - b.x; dragOffset.y = p.y - b.y;
+            isDragging = true; draw(); return;
         }
     }
-
     if (isAddingBlock) {
         let pos = applySnap(p.x - BLOCK_SIZE/2, p.y - BLOCK_SIZE/2, -1);
         blocks.push({ x: pos.x, y: pos.y, w: BLOCK_SIZE, h: BLOCK_SIZE });
-        selectedIndex = blocks.length - 1;
-        toggleDPad();
-        draw();
+        selectedIndex = blocks.length - 1; toggleDPad(); draw();
     } else {
-        selectedIndex = -1;
-        toggleDPad();
+        selectedIndex = -1; toggleDPad();
         const angles = [Math.PI/4, 3*Math.PI/4, 5*Math.PI/4, 7*Math.PI/4];
         const hornOuterRadius = CHAR_RADIUS + 1 + HORN_LENGTH;
         let isHornTouched = false;
@@ -318,14 +317,10 @@ const down = e => {
             if (Math.hypot(p.x - hornX, p.y - hornY) < HORN_TOUCH_BUFFER) { isHornTouched = true; break; }
         }
         if (isHornTouched) {
-            isDraggingStart = true;
-            isDragging = true;
-            dragOffset.x = p.x - start.x;
-            dragOffset.y = p.y - start.y;
+            isDraggingStart = true; isDragging = true;
+            dragOffset.x = p.x - start.x; dragOffset.y = p.y - start.y;
         } else {
-            target = p;
-            isDragging = true;
-            draw();
+            target = p; isDragging = true; draw();
         }
     }
 };
@@ -337,8 +332,7 @@ const move = e => {
         let pos = applySnap(p.x - dragOffset.x, p.y - dragOffset.y, draggingBlockIndex);
         blocks[draggingBlockIndex].x = pos.x; blocks[draggingBlockIndex].y = pos.y;
     } else if (isDraggingStart) {
-        start.x = p.x - dragOffset.x;
-        start.y = p.y - dragOffset.y;
+        start.x = p.x - dragOffset.x; start.y = p.y - dragOffset.y;
     } else {
         target = p;
     }
